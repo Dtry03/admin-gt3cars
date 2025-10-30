@@ -25,7 +25,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18' # Usar Node 18 (o la versión que uses)
+          node-version: '20' # Usar Node 18 (o la versión que uses)
           cache: 'npm'
 
       # 3. Configurar Java (necesario para construir Android)
