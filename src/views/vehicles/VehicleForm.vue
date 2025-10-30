@@ -85,7 +85,7 @@
       <div class="flex justify-end space-x-4">
         <router-link
           to="/vehicles"
-          class="px-4 py-2 bg-white border border-secondary  bg-dark text-black rounded-md text-sm font-medium text-white hover:bg-gray-50"
+          class="px-4 py-2 bg-white    text-black rounded-md text-sm font-medium hover:bg-gray-50"
         >
           Cancelar
         </router-link>
