@@ -34,7 +34,7 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
-          java-version: '17' # Android Studio requiere JDK 17
+          java-version: '21' # Android Studio requiere JDK 17
 
       # 4. Instalar todas las dependencias de npm
       - name: Install npm dependencies
