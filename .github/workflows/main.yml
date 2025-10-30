@@ -25,7 +25,8 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20' # Usar Node 18 (o la versión que uses)
+          # CORRECCIÓN: Cambiado de '18' a '20' para compatibilidad con Capacitor
+          node-version: '20'
           cache: 'npm'
 
       # 3. Configurar Java (necesario para construir Android)
@@ -37,7 +38,8 @@ jobs:
 
       # 4. Instalar todas las dependencias de npm
       - name: Install npm dependencies
-        run: npm install
+        # Usar --legacy-peer-deps si es necesario para resolver conflictos
+        run: npm install --legacy-peer-deps
 
       # 5. Instalar el CLI de Capacitor globalmente en el runner
       - name: Install Capacitor CLI
@@ -48,13 +50,16 @@ jobs:
         run: npm run build
         env:
           # Define la URL de la API para el build
-          # DEBES añadir 'VITE_API_URL' a los Secretos de tu repositorio en GitHub
+          # DEBES añadir 'VITE_API_URL' y 'VITE_API_TOKEN' a los Secretos de tu repositorio en GitHub
           VITE_API_URL: ${{ secrets.VITE_API_URL }}
           VITE_API_TOKEN: ${{ secrets.VITE_API_TOKEN }}
 
       # 7. Añadir la plataforma Android a Capacitor
+      # CORRECCIÓN: Eliminar la carpeta 'android' si existe antes de añadirla
       - name: Add Android platform
-        run: npx cap add android
+        run: |
+          rm -rf android
+          npx cap add android
 
       # 8. Sincronizar el build de Vue ('dist') con la plataforma Android
       - name: Sync web assets
@@ -81,3 +86,4 @@ jobs:
           name: gt3cars-admin-apk-debug
           # Ruta donde Gradle guarda el APK de debug
           path: android/app/build/outputs/apk/debug/app-debug.apk
+
