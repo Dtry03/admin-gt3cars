@@ -1,0 +1,9 @@
+/* En src/index.css */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Estilos base globales */
+body {
+  @apply bg-secondary text-gray-900 antialiased; /* <--- AQUÍ */
+}

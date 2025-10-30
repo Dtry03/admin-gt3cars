@@ -1,0 +1,83 @@
+# Nombre del Workflow
+name: Build Android APK
+
+# Cuándo ejecutar el workflow
+on:
+  # Permite ejecutarlo manualmente desde la pestaña Actions en GitHub
+  workflow_dispatch:
+  
+  # O ejecutarlo automáticamente cuando se hace push a la rama 'main'
+  # push:
+  #   branches: [ "main" ]
+
+jobs:
+  build-android:
+    name: Build Android App
+    # Usar el sistema operativo más reciente de Ubuntu
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Clonar el repositorio
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      # 2. Configurar Node.js (necesario para Vue y Capacitor)
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18' # Usar Node 18 (o la versión que uses)
+          cache: 'npm'
+
+      # 3. Configurar Java (necesario para construir Android)
+      - name: Set up Java (JDK)
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17' # Android Studio requiere JDK 17
+
+      # 4. Instalar todas las dependencias de npm
+      - name: Install npm dependencies
+        run: npm install
+
+      # 5. Instalar el CLI de Capacitor globalmente en el runner
+      - name: Install Capacitor CLI
+        run: npm install -g @capacitor/cli
+
+      # 6. Construir la aplicación Vue (genera la carpeta 'dist')
+      - name: Build Vue App
+        run: npm run build
+        env:
+          # Define la URL de la API para el build
+          # DEBES añadir 'VITE_API_URL' a los Secretos de tu repositorio en GitHub
+          VITE_API_URL: ${{ secrets.VITE_API_URL }}
+          VITE_API_TOKEN: ${{ secrets.VITE_API_TOKEN }}
+
+      # 7. Añadir la plataforma Android a Capacitor
+      - name: Add Android platform
+        run: npx cap add android
+
+      # 8. Sincronizar el build de Vue ('dist') con la plataforma Android
+      - name: Sync web assets
+        run: npx cap sync android
+
+      # 9. Preparar la compilación de Android
+      - name: Set up Gradle
+        run: |
+          # Dar permisos de ejecución al script de Gradle
+          cd android
+          chmod +x ./gradlew
+
+      # 10. Construir el APK (versión Debug)
+      - name: Build Android APK (Debug)
+        run: |
+          cd android
+          # Limpiar build anterior y construir el APK de Debug
+          ./gradlew clean assembleDebug
+
+      # 11. Subir el APK como un artefacto
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: gt3cars-admin-apk-debug
+          # Ruta donde Gradle guarda el APK de debug
+          path: android/app/build/outputs/apk/debug/app-debug.apk
