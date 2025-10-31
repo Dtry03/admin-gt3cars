@@ -82,7 +82,7 @@ const loadItemData = async () => {
     } catch (error:any) {
       console.error("Error cargando categoría:", error)
       uiStore.setError(`Error al cargar la categoría: ${error.message}`)
-      router.push('/categories')
+      router.back()
     } finally {
       uiStore.setLoading(false)
     }
@@ -112,7 +112,7 @@ const handleSubmit = async () => {
     } else {
       await categoryService.create(payload)
     }
-    router.push('/categories')
+    router.back()
   } catch (error:any) {
     console.error("Error al guardar:", error)
     uiStore.setError(`Error al guardar la categoría: ${error.message}`)

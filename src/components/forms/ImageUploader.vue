@@ -33,7 +33,7 @@
           </label>
           <p class="pl-1 text-gray-400">o arrastra y suelta</p>
         </div>
-        <p class="text-xs text-gray-400">PNG, JPG, GIF hasta 10MB</p>
+        <p class="text-xs text-gray-400">PNG, JPG, GIF</p>
       </div>
     </div>
     
@@ -42,7 +42,7 @@
       Subiendo...
     </div>
 
-    <!-- Vistas previas (solo local, desaparecen al subir) -->
+    <!-- Vistas previas locales (ahora no desaparecen) -->
     <div v-if="previews.length > 0" class="mt-4 grid grid-cols-3 gap-4">
       <div v-for="(preview, index) in previews" :key="index" class="relative group">
         <img :src="preview.url" :alt="preview.name" class="h-32 w-full object-cover rounded-md shadow-md" />
@@ -62,7 +62,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue' // CORRECCIÓN: computed importado
+import { ref, computed } from 'vue'
 import { PhotoIcon, XMarkIcon } from '@heroicons/vue/24/solid'
 import { upload as uploadService } from '@/services/uploadService'
 import { useUiStore } from '@/stores/uiStore'
@@ -82,6 +82,7 @@ const props = defineProps({
   }
 })
 
+// 'upload-success' ahora emite el/los objeto(s) de imagen completos
 const emit = defineEmits(['upload-success', 'upload-error'])
 
 interface PreviewFile {
@@ -94,7 +95,6 @@ const isDragging = ref(false)
 const isUploading = ref(false)
 const previews = ref<PreviewFile[]>([])
 const uiStore = useUiStore()
-// CORRECCIÓN: ID único para el input/label
 const uploadId = computed(() => `file-upload-${Math.random().toString(36).substring(7)}`)
 
 const onDragOver = () => { isDragging.value = true; };
@@ -105,7 +105,6 @@ const handleFileSelect = (event: Event) => {
   if (target.files) {
     processFiles(Array.from(target.files))
   }
-  // Limpiar el input para permitir seleccionar el mismo archivo de nuevo
   target.value = '';
 }
 
@@ -121,27 +120,19 @@ const processFiles = (files: File[]) => {
   let filesToUpload: File[] = []
 
   if (!props.multiple) {
-    // Si no es múltiple, reemplazamos
-    if (files.length > 0) {
-      filesToUpload = [files[0]] // Solo el primero
-    }
+    if (files.length > 0) filesToUpload = [files[0]];
   } else {
-    // Si es múltiple, añadimos
-    filesToUpload = files
+    filesToUpload = files;
   }
   
-  // Iniciar la lógica de vista previa (asíncrona)
-  filesToUpload.forEach(addFileToPreview)
+  filesToUpload.forEach(addFileToPreview);
   
-  // Iniciar la subida automáticamente (síncrono)
-  // CORRECCIÓN: Pasar los archivos directamente a uploadFiles
   if(filesToUpload.length > 0) {
     uploadFiles(filesToUpload);
   }
 }
 
 const addFileToPreview = (file: File) => {
-  // Validar tipo de archivo
   if (!file.type.startsWith('image/')) {
     uiStore.setError(`El archivo "${file.name}" no es una imagen.`)
     return
@@ -159,51 +150,44 @@ const addFileToPreview = (file: File) => {
 }
 
 const removePreview = (index: number) => {
-  // Esta función solo elimina la vista previa local *antes* de la subida
   previews.value.splice(index, 1)
-  // (Nota: Si se quisiera cancelar una subida en progreso, sería más complejo)
 }
 
-// CORRECCIÓN: uploadFiles ahora acepta 'filesToUpload' como argumento
 const uploadFiles = async (filesToUpload: File[]) => {
-  // CORRECCIÓN: Comprobar el array de argumento, no previews.value
   if (filesToUpload.length === 0) return
 
   isUploading.value = true
-  uiStore.setLoading(true) // Usar el loader global
+  uiStore.setLoading(true)
 
   try {
-    // CORRECCIÓN: Usar 'filesToUpload' directamente
     const files = props.multiple ? filesToUpload : filesToUpload[0]
     
-    // AQUÍ ES DONDE SE LLAMA AL SERVICIO DEL CANVAS
-    // (Ahora deberías ver los logs de "Enviando..." en la consola)
+    // El servicio (corregido) devuelve los objetos de imagen aplanados
     const response = await uploadService(files) 
 
-    // (El console.log de "Respuesta de /api/upload:" debería aparecer ahora)
-
-    // Emitir los IDs de las imágenes subidas
-    // Asumimos que la respuesta (aplanada) es un array de objetos con 'id'
-    const uploadedIds = (response || []).map((img: any) => img.id).filter(Boolean);
-    
-    if (uploadedIds.length > 0) {
-      emit('upload-success', uploadedIds)
+    // Emitir los objetos de imagen completos, no solo los IDs
+    if (props.multiple) {
+      // response es un array (ej. [img1, img2])
+      emit('upload-success', response || []) 
     } else {
-      console.warn("La subida tuvo éxito pero no se recibieron IDs de imagen.", response);
+      // response es un array con un solo objeto (ej. [img1])
+      // Emitimos solo el primer objeto (o null)
+      emit('upload-success', (response && response[0]) ? response[0] : null)
     }
     
-    uiStore.setError(null) // Limpiar errores previos
+    uiStore.setError(null)
     
-  } catch (error: any) { // CORRECCIÓN: tipar error
-    // (El console.log de "Error durante la subida..." debería aparecer si falla)
+  } catch (error: any) { 
     console.error('Error al subir archivos (desde ImageUploader):', error)
     uiStore.setError(`Error al subir la imagen: ${error.message || 'Error desconocido'}`)
     emit('upload-error', error)
   } finally {
     isUploading.value = false
     uiStore.setLoading(false)
-    previews.value = [] // Limpiar vistas previas después de subir
+    
+    // CORRECCIÓN: Comentamos la línea que borra la vista previa
+    // previews.value = [] 
   }
 }
-
 </script>
+

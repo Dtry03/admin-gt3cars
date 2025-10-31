@@ -49,7 +49,7 @@
     
     <editor-content 
       :editor="editor" 
-      class="prose max-w-none p-3 border-4 border-t-0 border-secondary rounded-b-md min-h-[200px] focus:outline-none focus:ring-1 focus:ring-primary"
+      class="text-gray-400 prose max-w-none p-3 border-4 border-t-0 border-secondary rounded-b-md min-h-[200px] focus:outline-none focus:ring-1 focus:ring-primary"
     />
   </div>
 </template>

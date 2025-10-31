@@ -1,7 +1,7 @@
 <template>
   <div>
     <div class="flex justify-between items-center mb-6">
-      <h1 class="text-3xl font-bold text-white">Solicitudes</h1>
+
     </div>
 
     <div class="bg-dark shadow-md rounded-lg overflow-hidden overflow-x-auto">

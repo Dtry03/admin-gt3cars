@@ -125,18 +125,28 @@ export const createCrudService = <T extends StrapiEntityWithDocId>(
    * IMPORTANTE: El código que llama a esta función (ej. handleSubmit en Form.vue)
    * debe pasar el documentId correcto en lugar del 'id' numérico.
    */
-  const update = async (documentId: number | string, data: any): Promise<StrapiResponse<T>> => {
-     if (!documentId) {
-       throw new Error("Se requiere documentId para actualizar la entrada.");
-     }
-    const cleanedData = cleanPayload(data);
-    const payload = { data: cleanedData }; // Strapi espera el wrapper
-    // Usa el documentId en la URL
-    const response = await apiClient.put(`${apiUrl}/${documentId}`, payload)
-    // Asume respuesta aplanada o con { data: item }
-    return response.data?.data || response.data;
+const update = async (documentId: number | string, data: any): Promise<StrapiResponse<T>> => {
+  if (!documentId) {
+    throw new Error("Se requiere documentId para actualizar la entrada.");
   }
 
+  const cleanedData = cleanPayload(data);
+  const payload = { data: cleanedData };
+
+  // Pedimos populate=* para asegurarnos de traer todas las relaciones/formatos del logo
+  // Mantengo PUT para compatibilidad con tu backend
+  const response = await apiClient.put(`${apiUrl}/${documentId}?populate=*`, payload);
+
+  const updatedData = response.data?.data || response.data;
+
+  if (!updatedData) {
+    console.warn(`⚠️ La respuesta del update en ${apiUrl} no devolvió datos. Respuesta cruda:`, response.data);
+  } else {
+    console.log('✔️ update response (aplanada):', updatedData);
+  }
+
+  return updatedData;
+};
   /**
    * Elimina una entrada - USA documentId (Strapi v5)
    * IMPORTANTE: El código que llama a esta función (ej. confirmDelete en List.vue)

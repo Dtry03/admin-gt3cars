@@ -2,7 +2,7 @@
   <div>
     <div class="flex justify-between items-center mb-6">
       <!-- CORRECCIÓN: Título añadido -->
-      <h1 class="text-3xl font-bold text-white">Vehículos</h1>
+
       <router-link
         to="/vehicles/new"
         class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"

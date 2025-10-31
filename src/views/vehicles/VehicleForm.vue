@@ -1,6 +1,7 @@
 <template>
   <div>
-
+    <!-- CORRECCIÓN: Título no presente en el template, añadido h1 -->
+    <h1 class="text-3xl font-bold text-white mb-6">{{ isEditing ? 'Editar Vehículo' : 'Nuevo Vehículo' }}</h1>
 
     <form @submit.prevent="handleSubmit" class="space-y-6 bg-dark p-8 rounded-lg shadow-md">
 
@@ -22,9 +23,9 @@
           <label for="brand" class="block text-sm font-medium text-white">Marca</label>
           <select v-model="form.marca" id="brand" required class="mt-1 block w-full rounded-md border-secondary border-4 bg-dark text-gray-400 shadow-sm focus:border-primary focus:ring-primary sm:text-sm">
             <option disabled :value="undefined">Selecciona una marca</option>
-            <!-- CORRECCIÓN: Usar 'brand.nombre' si ese es el campo en el modelo Marca -->
             <option v-for="brand in brands" :key="brand.id" :value="brand.id">
-              {{ brand.nombre }} <!-- Asumiendo que Marca tiene 'nombre', no 'modelo' -->
+              <!-- CORRECCIÓN: Usar 'brand.nombre' (las Marcas tienen 'nombre') -->
+              {{ brand.nombre }}
             </option>
           </select>
         </div>
@@ -85,7 +86,7 @@
       <div class="flex justify-end space-x-4">
         <router-link
           to="/vehicles"
-          class="px-4 py-2 bg-white    text-black rounded-md text-sm font-medium hover:bg-gray-50"
+          class="px-4 py-2 bg-white text-black rounded-md text-sm font-medium hover:bg-gray-50"
         >
           Cancelar
         </router-link>
@@ -107,12 +108,12 @@ import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { vehicleService } from '@/services/vehicleService'
 import { brandService } from '@/services/brandService'
-// Importamos Vehicle que incluye documentId?
-import type { Vehicle } from '@/types'
-// import type { StrapiImage } from '@/types/strapi' // Usando 'any' para imagen aplanada
+// CORRECCIÓN: Importar 'Brand' y 'Vehicle' (aplanados) y 'FlatImage'
+import type { Brand, Vehicle, FlatImage } from '@/types' 
 import { useUiStore } from '@/stores/uiStore'
 import RichTextEditor from '@/components/forms/RichTextEditor.vue'
-import ImageUploader from '@/components/forms/ImageUploader.vue'
+// CORRECCIÓN: ImageUploader (el del Canvas) se importa
+import ImageUploader from '@/components/forms/ImageUploader.vue' 
 import { XMarkIcon } from '@heroicons/vue/24/solid'
 
 const props = defineProps({
@@ -151,25 +152,20 @@ const form = ref<VehicleFormState>({
   imagenes: [],
 })
 
-const brands = ref<any[]>([]) // Usando 'any' para marca aplanada
-const existingImages = ref<any[]>([]) // Usando 'any' para imagen aplanada
-// Ref para guardar el item completo, incluyendo documentId
+const brands = ref<Brand[]>([]) // CORRECCIÓN: Usar tipo Brand
+const existingImages = ref<FlatImage[]>([]) // CORRECCIÓN: Usar tipo FlatImage[]
+// CORRECCIÓN: Ref para guardar el item completo, incluyendo documentId
 const currentItem = ref<Vehicle | null>(null);
 
 const loadRelations = async () => {
   try {
-    // CORRECCIÓN: Usar brandService.find y manejar ambas estructuras de respuesta
     const brandsResponse = await brandService.find({ pagination: { pageSize: 1000 } });
 
-    // Verificar si la respuesta es { data: [...] } o solo [...]
     if (Array.isArray(brandsResponse)) {
-      // API aplanada, devuelve el array directamente
       brands.value = brandsResponse;
     } else if (brandsResponse?.data && Array.isArray(brandsResponse.data)) {
-      // API estándar, extraer el array de 'data'
       brands.value = brandsResponse.data;
     } else {
-      // Estructura inesperada
       console.warn("Respuesta inesperada al cargar marcas:", brandsResponse);
       brands.value = [];
     }
@@ -179,23 +175,19 @@ const loadRelations = async () => {
   }
 }
 
+// CORRECCIÓN: Función 'toInputDate' eliminada (no se usa)
 
 const loadVehicleData = async () => {
-  if (isEditing.value && props.id) { // Added check for props.id
+  if (isEditing.value && props.id) { 
     uiStore.setLoading(true)
     try {
-      // Usamos 'marca' e 'imagenes' en el populate (sin categoría)
       const response = await vehicleService.findOne(Number(props.id), {
         populate: ['marca', 'imagenes']
       })
 
-      // Asumimos API aplanada
       const data = response.data
-
-      // Guardar el item completo
       currentItem.value = data;
 
-      // Mapeo explícito a los nombres en español y aplanados
       form.value = {
         modelo: data.modelo || '',
         ano: data.ano,
@@ -203,18 +195,15 @@ const loadVehicleData = async () => {
         precio: data.precio,
         descripcion: data.descripcion || '',
         estado: (data.estado === 'disponible' || data.estado === 'vendido') ? data.estado : 'disponible',
-        // Acceder al ID de la marca aplanada
         marca: data.marca?.id ?? undefined,
-        // Mapear IDs de imágenes aplanadas
         imagenes: data.imagenes?.map((img: any) => img.id).filter((id: any) => id != null) || [],
       }
-      // Guardar array de imágenes aplanadas
       existingImages.value = data.imagenes || []
 
     } catch (error:any) {
       console.error("Error cargando vehículo:", error)
       uiStore.setError(`Error al cargar los datos del vehículo: ${error.message}`)
-      router.push('/vehicles') // Redirect on error
+      router.back() // Redirect on error
     } finally {
       uiStore.setLoading(false)
     }
@@ -226,8 +215,22 @@ onMounted(() => {
   loadVehicleData()
 })
 
-const handleImageUpload = (uploadedIds: number[]) => {
-  form.value.imagenes.push(...uploadedIds)
+//
+// --- CORRECCIÓN CLAVE ---
+// 'handleImageUpload' ahora espera un array de Objetos de Imagen (FlatImage[])
+// porque ImageUploader (del Canvas) emite el objeto completo y 'multiple' es true.
+//
+const handleImageUpload = (uploadedImages: FlatImage[]) => {
+  if (uploadedImages && uploadedImages.length > 0) {
+    uploadedImages.forEach(img => {
+      if (img && img.id) {
+        // 1. Añadir solo el ID al formulario para el payload
+        form.value.imagenes.push(img.id); 
+        // 2. Añadir el objeto completo a 'existingImages' para la vista previa
+        existingImages.value.push(img); 
+      }
+    });
+  }
 }
 
 const removeExistingImage = (idToRemove: number) => {
@@ -236,7 +239,6 @@ const removeExistingImage = (idToRemove: number) => {
 }
 
 const handleSubmit = async () => {
-  // Se usa 'marca' y se elimina 'category'
   if (!form.value.modelo || !form.value.marca) {
     uiStore.setError("Modelo y Marca son obligatorios.")
     return
@@ -246,7 +248,7 @@ const handleSubmit = async () => {
 
   try {
     if (isEditing.value) {
-       // Obtener documentId de currentItem
+       // CORRECCIÓN: Obtener documentId de currentItem
        const docId = currentItem.value?.documentId;
        if (!docId) {
          uiStore.setError("No se pudo obtener el documentId para actualizar. Refresca la página.");
@@ -257,41 +259,29 @@ const handleSubmit = async () => {
     } else {
       await vehicleService.create(payload)
     }
-    router.push('/vehicles')
+    router.back()
   } catch (error:any) {
     console.error("Error al guardar el vehículo:", error)
      uiStore.setError(`Error al guardar el vehículo: ${error.message}`)
-    // Axios interceptor handles UI error display
   }
 }
 
-// Función 'getImageUrl' actualizada para la API aplanada
 const getImageUrl = (url?: string | null): string => {
   const placeholder = 'https://placehold.co/150x150/e2e8f0/94a3b8?text=Sin+Imagen';
   if (!url) {
-       // console.log("getImageUrl: URL is null or undefined, using placeholder.");
        return placeholder;
    }
-
-   // Check if URL is already absolute
    if (url.startsWith('http://') || url.startsWith('https://')) {
-       // console.log("getImageUrl: URL is already absolute:", url);
        return url;
    }
-
-  // If relative (starts with '/'), build with VITE_API_URL
   if (url.startsWith('/')) {
      const baseUrl = import.meta.env.VITE_API_URL;
       if (!baseUrl) {
         console.error("VITE_API_URL is not defined in .env");
         return placeholder;
       }
-     const fullUrl = `${baseUrl}${url}`;
-     // console.log("getImageUrl: Building absolute URL:", fullUrl);
-     return fullUrl;
+     return `${baseUrl}${url}`;
   }
-
-  // If URL format is unexpected
   console.warn("getImageUrl: URL has an unexpected format, using placeholder:", url);
   return placeholder;
 }

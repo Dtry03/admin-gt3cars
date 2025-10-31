@@ -2,7 +2,7 @@
   <header class="h-16 bg-dark shadow-sm flex items-center justify-between px-6">
     <!-- Título de la Ruta -->
     <div>
-      <h2 class="text-xl font-semibold text-gray-400">{{ $route.name }}</h2>
+      <a href="/dashboard"><h2 class="text-xl font-semibold text-gray-400">{{ $route.name }}</h2></a>
     </div>
 
     <!-- Lado derecho: Nombre de usuario y Botón de Atrás -->

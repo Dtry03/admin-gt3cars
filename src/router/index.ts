@@ -113,7 +113,7 @@ const routes = [
       },
       {
         path: 'solicitudes',
-        name: 'SolicitudList',
+        name: 'SOLICITUDES',
         component: SolicitudList,
 
       },

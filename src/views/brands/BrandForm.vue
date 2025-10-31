@@ -1,24 +1,37 @@
 <template>
   <div>
-  
+    <!-- Título -->
+    <h1 class="text-3xl font-bold text-white mb-6">
+      {{ isEditing ? 'Editar Marca' : 'Nueva Marca' }}
+    </h1>
 
-    <form @submit.prevent="handleSubmit" class="space-y-6 bg-dark p-8 rounded-lg shadow-md max-w-2xl mx-auto">
-
+    <form
+      @submit.prevent="handleSubmit"
+      class="space-y-6 bg-dark p-8 rounded-lg shadow-md max-w-2xl mx-auto"
+    >
       <!-- Nombre -->
       <div>
-        <label for="nombre" class="block text-sm font-medium text-white">Nombre</label>
-        <input type="text" v-model="form.nombre" id="nombre" required class="mt-1 block w-full rounded-md bg-dark text-gray-400 border-4 border-secondary shadow-sm focus:border-primary focus:ring-primary sm:text-sm" />
+        <label for="nombre" class="block text-sm font-medium text-white">
+          Nombre
+        </label>
+        <input
+          type="text"
+          v-model="form.nombre"
+          id="nombre"
+          required
+          class="mt-1 block w-full rounded-md bg-dark text-gray-400 border-4 border-secondary shadow-sm focus:border-primary focus:ring-primary sm:text-sm"
+        />
       </div>
 
       <!-- Logo -->
       <div>
         <ImageUploader label="Logo" :multiple="false" @upload-success="handleImageUpload" />
 
-        <div v-if="isEditing && existingLogo" class="mt-4">
+        <div v-if="existingLogo" class="mt-4">
           <h4 class="text-sm font-medium text-white mb-2">Logo Actual</h4>
           <div class="relative group w-32">
             <img
-              :src="getImageUrl(existingLogo.formats?.thumbnail?.url)"
+              :src="getImageUrlFromLogo(existingLogo)"
               alt="Logo actual"
               class="h-32 w-32 object-cover rounded-md shadow-md"
             />
@@ -50,7 +63,6 @@
           {{ isEditing ? 'Actualizar' : 'Crear' }}
         </button>
       </div>
-
     </form>
   </div>
 </template>
@@ -59,8 +71,7 @@
 import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { brandService } from '@/services/brandService'
-import type { Brand } from '@/types' // Import Brand type which includes documentId?
-// import type { StrapiImage } from '@/types/strapi' // Using 'any' for flattened logo
+import type { Brand, FlatImage } from '@/types'
 import { useUiStore } from '@/stores/uiStore'
 import ImageUploader from '@/components/forms/ImageUploader.vue'
 import { XMarkIcon } from '@heroicons/vue/24/solid'
@@ -73,50 +84,40 @@ const props = defineProps({
 })
 
 interface BrandFormState {
-  nombre: string;
-  logo: number | null; // ID of the logo image
+  nombre: string
+  logo: number[] // 👈 ahora es un array de IDs
 }
 
 const router = useRouter()
 const uiStore = useUiStore()
-
 const isEditing = computed(() => !!props.id)
 
 const form = ref<BrandFormState>({
   nombre: '',
-  logo: null,
+  logo: [],
 })
 
-const existingLogo = ref<any | null>(null) // Using 'any' for flattened logo object
-// CORRECCIÓN: Ref to store the full current item, including documentId
-const currentItem = ref<Brand | null>(null);
+const existingLogo = ref<FlatImage | null>(null)
+const currentItem = ref<Brand | null>(null)
 
 const loadItemData = async () => {
-  if (isEditing.value && props.id) { // Added check for props.id
+  if (isEditing.value && props.id) {
     uiStore.setLoading(true)
     try {
-      // findOne uses filter logic from crudService and populates logo
       const response = await brandService.findOne(Number(props.id), { populate: 'logo' })
-
-      // Assuming the API is flattened (no .attributes)
       const data = response.data
-
-       // CORRECCIÓN: Store the full item
-      currentItem.value = data;
+      currentItem.value = data
 
       form.value = {
-        nombre: data.nombre || '', // Added fallback
-        // Assuming 'logo' is a flattened object (or null), not { data: ... }
-        logo: data.logo?.id || null,
+        nombre: data.nombre || '',
+        logo: Array.isArray(data.logo) ? data.logo.map((img: FlatImage) => img.id) : [],
       }
 
-      // Assign the flattened logo object
-      existingLogo.value = data.logo
-
-    } catch (error:any) {
-      console.error("Error cargando marca:", error)
-       uiStore.setError(`Error al cargar la marca: ${error.message}`)
-      router.push('/brands') // Redirect to list on error
+      existingLogo.value = Array.isArray(data.logo) ? data.logo[0] || null : null
+    } catch (error: any) {
+      console.error('Error cargando marca:', error)
+      uiStore.setError(`Error al cargar la marca: ${error.message}`)
+      router.back()
     } finally {
       uiStore.setLoading(false)
     }
@@ -125,22 +126,24 @@ const loadItemData = async () => {
 
 onMounted(loadItemData)
 
-const handleImageUpload = (uploadedIds: number[]) => {
-  if (uploadedIds.length > 0) {
-    form.value.logo = uploadedIds[0]
-     // Optionally clear existingLogo preview if a new one is uploaded
-     // existingLogo.value = null;
+const handleImageUpload = (uploadedImage: FlatImage | null) => {
+  if (uploadedImage && uploadedImage.id) {
+    form.value.logo = [uploadedImage.id] // 👈 siempre un array
+    existingLogo.value = uploadedImage
+  } else {
+    form.value.logo = []
+    existingLogo.value = null
   }
 }
 
 const removeExistingImage = () => {
-  form.value.logo = null
+  form.value.logo = []
   existingLogo.value = null
 }
 
 const handleSubmit = async () => {
   if (!form.value.nombre) {
-    uiStore.setError("El nombre es obligatorio.")
+    uiStore.setError('El nombre es obligatorio.')
     return
   }
 
@@ -148,53 +151,45 @@ const handleSubmit = async () => {
 
   try {
     if (isEditing.value) {
-       // CORRECCIÓN: Get documentId from currentItem
-       const docId = currentItem.value?.documentId;
-       if (!docId) {
-         uiStore.setError("No se pudo obtener el documentId para actualizar. Refresca la página.");
-          console.error("currentItem o documentId es nulo/undefined:", currentItem.value);
-         return;
-       }
-      await brandService.update(docId, payload) // Pass documentId
+      const docId = currentItem.value?.documentId
+      if (!docId) {
+        uiStore.setError('No se pudo obtener el documentId para actualizar. Refresca la página.')
+        console.error('currentItem o documentId es nulo/undefined:', currentItem.value)
+        return
+      }
+
+    
     } else {
       await brandService.create(payload)
     }
-    router.push('/brands')
-  } catch (error:any) {
-    console.error("Error al guardar:", error)
-     uiStore.setError(`Error al guardar la marca: ${error.message}`)
-    // Axios interceptor should handle UI error display for network issues
+    router.back()
+  } catch (error: any) {
+    console.error('Error al guardar:', error)
+    uiStore.setError(`Error al guardar la marca: ${error.message}`)
   }
 }
 
-// CORRECCIÓN: Updated 'getImageUrl' function for flattened API
-const getImageUrl = (url?: string | null): string => {
-  const placeholder = 'https://placehold.co/150x150/e2e8f0/94a3b8?text=Sin+Logo';
-  if (!url) {
-      // console.log("getImageUrl: URL is null or undefined, using placeholder.");
-      return placeholder;
-  }
+// --- FUNCIÓN ROBUSTA PARA URL DE IMAGEN ---
+const getImageUrlFromLogo = (logo: any): string => {
+  const placeholder = 'https://placehold.co/150x150/e2e8f0/94a3b8?text=Sin+Logo'
+  if (!logo) return placeholder
 
-   // Check if URL is already absolute
-   if (url.startsWith('http://') || url.startsWith('https://')) {
-       // console.log("getImageUrl: URL is already absolute:", url);
-       return url;
-   }
+  const possibleUrl =
+    logo.url ||
+    logo?.data?.url ||
+    logo?.formats?.thumbnail?.url ||
+    logo?.formats?.small?.url ||
+    logo?.formats?.medium?.url ||
+    logo?.formats?.large?.url
 
-  // If relative (starts with '/'), build with VITE_API_URL
-  if (url.startsWith('/')) {
-     const baseUrl = import.meta.env.VITE_API_URL;
-      if (!baseUrl) {
-        console.error("VITE_API_URL is not defined in .env");
-        return placeholder;
-      }
-     const fullUrl = `${baseUrl}${url}`;
-     // console.log("getImageUrl: Building absolute URL:", fullUrl);
-     return fullUrl;
-  }
+  if (!possibleUrl) return placeholder
 
-  // If URL format is unexpected
-  console.warn("getImageUrl: URL has an unexpected format, using placeholder:", url);
-  return placeholder;
+  const baseUrl = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '')
+  let finalUrl = possibleUrl.startsWith('http')
+    ? possibleUrl
+    : `${baseUrl}${possibleUrl.startsWith('/') ? '' : '/'}${possibleUrl}`
+
+  const ts = logo.updatedAt ? new Date(logo.updatedAt).getTime() : Date.now()
+  return `${finalUrl}${finalUrl.includes('?') ? '&' : '?'}_=${ts}`
 }
 </script>
